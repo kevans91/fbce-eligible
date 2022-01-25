@@ -2,9 +2,6 @@
 
 PATH=/bin:/usr/bin:/usr/local/bin
 
-#TODO ? move all report files in a new /report directory (9 files per repo), or we can just remove the "unsorted" files and all files in doc/ and src/ ?
-#TODO invent something to clean up old tally files of safekept committers --> those are not in access anymore, so just loop
-
 _get_months_num()
 {
   echo 12
@@ -20,18 +17,10 @@ _grbindir=$(dirname "$0")
 _grbindir=$(realpath "${_grbindir}")
 cd "${_grbindir}"/.. || exit 1
 
-_GITREPO="anongit@git.freebsd.org" # tunable
-_BCC=portmgr-secretary@FreeBSD.org # tunable
-
 ## STEP 1 -- update repositories, fetch access files, generate *monthsactive.txt and *_authors_committed.txt ##
 for _repo in doc ports src
 do
-  if [ "${_repo}" = "ports" ]
-  then
-    _since=$(date -v-9m +%F)
-  else
-    _since=$(date -v-15m +%F)
-  fi
+  _since=$(date -v-12m +%F)
   _months=$(_get_months_str ${_repo})
 
   if [ ! -d "${_repo}".git ]
@@ -82,3 +71,5 @@ do
   echo "Last Commit	Name" > "${_repo}"_last_commit_report.txt
   sort "${_repo}"_last_commit_unsorted_report.txt >> "${_repo}"_last_commit_report.txt
 done
+
+cat *active.txt | sort -u
