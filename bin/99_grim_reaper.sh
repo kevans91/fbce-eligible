@@ -7,22 +7,12 @@ PATH=/bin:/usr/bin:/usr/local/bin
 
 _get_months_num()
 {
-  if [ "$1" = "ports" ]
-  then
-    echo 9
-  else
-    echo 15
-  fi
+  echo 12
 }
 
 _get_months_str()
 {
-  if [ "$1" = "ports" ]
-  then
-    echo "nine"
-  else
-    echo "fifteen"
-  fi
+  echo "twelve"
 }
 
 ## STEP 0 -- set up variables ##
@@ -60,106 +50,23 @@ done
 for _repo in doc ports src
 do
   rm "${_repo}"_not_committed_list.txt
-  _months=$(_get_months_str ${_repo})
-  echo "Pruning old tallies:" >&2
-  while read -r _committername
-  do
-    [ -f tally/"${_repo}"_"${_committername}" ] && rm -v tally/"${_repo}"_"${_committername}" >&2
-  done < "${_repo}"_"${_months}"monthsactive.txt
-
-  case "${_repo}" in
-    doc)
-      _committer_reply_to=doceng@FreeBSD.org
-      ;;
-    ports)
-      _committer_reply_to=portmgr@FreeBSD.org
-      ;;
-    src)
-      _committer_reply_to=core@FreeBSD.org
-      ;;
-  esac
 
   while read -r _committername
   do
-    if [ -f tally/"${_repo}"_"${_committername}" ]
-    then
-      read -r i < tally/"${_repo}"_"${_committername}"
-      i=$((i + 1))
-      echo "${i}" > tally/"${_repo}"_"${_committername}"
-    else
-      echo 1 > tally/"${_repo}"_"${_committername}"
-    fi
-
-    if [ -f exemptions/"${_repo}"_"${_committername}" ]
-    then
-      echo "/!\\ ${_repo} committer ${_committername} on exemption list /!\\" >&2
-      echo 0 > tally/"${_repo}"_"${_committername}"
-      _has_exemption="Note that you are on the exemption list.%"
-    else
-      _has_exemption=""
-    fi
-    if grep -q "^${_committername}$" "${_repo}"_authors_committed.txt
-    then
-      echo "${_repo} committer ${_committername} to be contacted" >&2
-      _months=$(_get_months_num ${_repo})
-      sed -e "s/%%M_IDLE%%/${_months}/g" -e "s/%%M_REAP%%/$((_months + 3))/g" -e "s/%%HAS_EXEMPTION%%/${_has_exemption}/g" "${_grbindir}"/idlenote.txt |
-        tr '%' '\n' | mutt -F "${_grbindir}"/muttrc -s "Idle ${_repo} commit bit" -b ${_committer_reply_to} "${_committername}"@FreeBSD.org
-    else
+    if ! grep -q "^${_committername}$" "${_repo}"_authors_committed.txt;
+	then
       echo "${_repo} committer ${_committername} has not yet made a commit" >&2
       echo "${_committername}" >> "${_repo}"_not_committed_list.txt
-      rm -v tally/"${_repo}"_"${_committername}" >&2
     fi
   done < "${_repo}"_dormant.txt
 done
-
-## STEP 3 -- create and mail hat reports ##
-find . -name \*_hatreport.txt -delete
-for _repo in doc ports src
-do
-  rm "${_repo}"/*.txt
-
-  while read -r _committername
-  do
-    git -C "${_repo}".git rev-list --all --committer="<${_committername}@" --max-count=1 --format="%cs%n%cl" | grep -v "^commit " > "${_repo}"/"${_committername}".txt
-    cat tally/"${_repo}"_"${_committername}" >> "${_repo}"/"${_committername}".txt
-  done < "${_repo}"_dormant.txt
-
-  for _file in "${_repo}"/*.txt
-  do
-    awk 'BEGIN{ RS="" }
-      {
-        for(i = 1; i <= NF; i++) printf "%-17s", $(i)
-        print ""
-      }' "${_file}" >> "${_repo}"_unsorted_hatreport.txt
-  done
-
-  {
-    echo "Last Commit	Name		Tally"
-    sort "${_repo}"_unsorted_hatreport.txt
-    echo ""
-    echo "A 0 tally means the committer is on the exemption list, but was still contacted"
-    echo ""
-    if [ -e "${_repo}"_not_committed_list.txt ]
-    then
-      echo "The folowing committers have not yet made a commit:"
-      cat "${_repo}"_not_committed_list.txt
-      echo ""
-    fi
-    echo "Report created: $(date)"
-  } > "${_repo}"_hatreport.txt
-done
-
-mutt -F "${_grbindir}"/muttrc -s "Idle ports commit bits" -b ${_BCC} portmgr@FreeBSD.org,core@FreeBSD.org < ports_hatreport.txt
-
-mutt -F "${_grbindir}"/muttrc -s "Idle doc commit bits" -b ${_BCC} doceng@FreeBSD.org,core@FreeBSD.org < doc_hatreport.txt
-
-mutt -F "${_grbindir}"/muttrc -s "Idle src commit bits" -b ${_BCC} core@FreeBSD.org < src_hatreport.txt
 
 find . -name \*_report.txt -delete
 
 ## STEP 4 -- create *_last_commit_reports.txt ##
 for _repo in doc ports src
 do
+  mkdir -p ${_repo}
   rm "${_repo}"/*.txt
 
   while read -r _committername
