@@ -12,6 +12,8 @@ _get_months_str()
   echo "twelve"
 }
 
+_GITREPO="anongit@git.freebsd.org" # tunable
+
 ## STEP 0 -- set up variables ##
 _grbindir=$(dirname "$0")
 _grbindir=$(realpath "${_grbindir}")
